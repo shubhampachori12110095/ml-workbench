@@ -27,10 +27,10 @@ def elapsed(sec):
 
 # Target log path
 logs_path = '/tmp/tensorflow/rnn_words'
-writer = tf.train.SummaryWriter(logs_path)
+writer = tf.summary.FileWriter(logs_path)
 
 # Text file containing words for training
-training_file = '../data/the-nightingale-and-the-rose.txt'
+training_file = 'data/the-nightingale-and-the-rose.txt'
 
 def read_data(fname):
     with open(fname) as f:
