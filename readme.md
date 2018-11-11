@@ -1,6 +1,10 @@
 setup & install venv:
-- virtualvenv venv
-- source venv/bin/activate
+- `virtualvenv venv`
+- `source venv/bin/activate`
+
+install custom ipykernel for jupyter notebook:
+- `ipython kernel install --user --name=ml-reference-implementations`
+- now the venv kernel can be selected in jupyter notebook
 
 
 Question / Answer Datasets:
