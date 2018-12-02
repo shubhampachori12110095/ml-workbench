@@ -1,14 +1,14 @@
-setup & install venv:
-- `virtualvenv venv`
+setup:
+- `python -m virtualenv venv`
 - `source venv/bin/activate`
+- `pip install -r requirements.txt`
+
+testing:
+- `python -m unittest discover`
 
 install custom ipykernel for jupyter notebook:
 - `ipython kernel install --user --name=ml-reference-implementations`
 - now the venv kernel can be selected in jupyter notebook
-
-testing:
-- `pip install -r requirements.txt`
-- `python -m unittest discover`
 
 Question / Answer Datasets:
 - squad2.0 from stanford https://rajpurkar.github.io/SQuAD-explorer/
