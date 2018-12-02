@@ -1,6 +1,12 @@
 import unittest
+import pandas as pd
+from src.vectorizers import ColumnBowVectorizer
 
 class TestColumnBowVectorizer(unittest.TestCase):
+
+    def setUp(self):
+        pass
+        # self.df = 
 
     def test_vectorizes_dataframe(self):
         pass
