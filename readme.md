@@ -7,7 +7,7 @@ testing:
 - `python -m unittest discover`
 
 install custom ipykernel for jupyter notebook:
-- `ipython kernel install --user --name=ml-reference-implementations`
+- `ipython kernel install --user --name=ml_workbench`
 - now the venv kernel can be selected in jupyter notebook
 
 Question / Answer Datasets:

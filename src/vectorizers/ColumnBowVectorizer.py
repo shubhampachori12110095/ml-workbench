@@ -2,14 +2,15 @@ from sets import Set
 import numpy as np
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
+from sklearn.base import TransformerMixin
 
-class ColumnBowVectorizer(object):
+class ColumnBowVectorizer(TransformerMixin):
     def __init__(self):
         self._stopwords = stopwords.words('english')
         self._vocabulary = Set()
         self._dictionary = {}
 
-    def fit(self, df):
+    def fit(self, df, *_):
         for column in df:
             rows = df[column].values
 
@@ -28,11 +29,14 @@ class ColumnBowVectorizer(object):
             x:index-1 for index, x in enumerate(self._vocabulary)
         }
 
-    def transform(self, df):
+        return self
 
-        # for each tokenised sentence, convert that into arrays 
-        # of which words occurred, where the order of the occurrence
-        # matches that of the vocabulary
+    def transform(self, df):
+        '''
+        for each tokenised sentence, convert that into arrays 
+        of which words occurred, where the order of the occurrence
+        matches that of the vocabulary.
+        '''
         column_vectors = []
 
         for column in df:
@@ -55,6 +59,7 @@ class ColumnBowVectorizer(object):
                 column_vector.append(
                     list(row_vector.values())
                 )
+                
             column_vectors.append(column_vector)
 
         # convert to feature representation
