@@ -9,6 +9,7 @@ class ColumnBowVectorizer(TransformerMixin):
         self._stopwords = stopwords.words('english')
         self._vocabulary = Set()
         self._dictionary = {}
+        self._feature_names = []
 
     def fit(self, df, *_):
         for column in df:
@@ -22,21 +23,22 @@ class ColumnBowVectorizer(TransformerMixin):
                     if token not in self._stopwords:
                         tokensFiltered.append(token)
 
+                self._feature_names += tokensFiltered
                 [self._vocabulary.add(token) for token in tokensFiltered]
                 # TODO: 2-grams & 3-grams
 
         self._dictionary = {
-            x:index-1 for index, x in enumerate(self._vocabulary)
+            x:index for index, x in enumerate(self._vocabulary)
         }
 
         return self
 
     def transform(self, df):
-        '''
+        """
         for each tokenised sentence, convert that into arrays 
         of which words occurred, where the order of the occurrence
         matches that of the vocabulary.
-        '''
+        """
         column_vectors = []
 
         for column in df:
