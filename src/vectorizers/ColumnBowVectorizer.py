@@ -66,24 +66,28 @@ class ColumnBowVectorizer(TransformerMixin):
                         tokensFiltered.append(token)
 
                 for index, token in enumerate(tokensFiltered):
-                    # 1-grams
-                    # dict_key = self._dictionary[token]
-                    # if dict_key is not -1:
-                    #     row_vector[dict_key] = 1
+                    try: 
+                        # 1-grams
+                        # dict_key = self._dictionary[token]
+                        # if dict_key is not -1:
+                        #     row_vector[dict_key] = 1
 
-                    # # 2-grams
-                    if (index > 0 and index < len(tokensFiltered)):
-                        ngram = tokensFiltered[index-1] + tokensFiltered[index]
-                        dict_key = self._dictionary[ngram]
-                        if dict_key is not -1:
-                            row_vector[dict_key] = 1
+                        # # 2-grams
+                        if (index > 0 and index < len(tokensFiltered)):
+                            ngram = tokensFiltered[index-1] + tokensFiltered[index]
+                            dict_key = self._dictionary[ngram]
+                            if dict_key is not -1:
+                                row_vector[dict_key] = 1
 
-                    # 3-grams
-                    if (index > 1 and index < len(tokensFiltered)):
-                        ngram = tokensFiltered[index-2] + tokensFiltered[index-1] + tokensFiltered[index]
-                        dict_key = self._dictionary[ngram]
-                        if dict_key is not -1:
-                            row_vector[dict_key] = 1
+                        # 3-grams
+                        if (index > 1 and index < len(tokensFiltered)):
+                            ngram = tokensFiltered[index-2] + tokensFiltered[index-1] + tokensFiltered[index]
+                            dict_key = self._dictionary[ngram]
+                            if dict_key is not -1:
+                                row_vector[dict_key] = 1
+
+                    except: 
+                        pass
                     
                 column_vector.append(
                     list(row_vector.values())
