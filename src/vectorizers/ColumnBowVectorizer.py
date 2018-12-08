@@ -46,9 +46,7 @@ class ColumnBowVectorizer(TransformerMixin):
             for row in rows:
                 tokens = word_tokenize(row)
                 row_vector = dict.fromkeys(
-                    range(0, len(self._vocabulary)), 
-                    0
-                )
+                    range(0, len(self._vocabulary)), 0)
 
                 for token in tokens:
                     if token not in self._stopwords:

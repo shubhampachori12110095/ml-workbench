@@ -34,3 +34,7 @@ def parse_data(path):
     return pd.DataFrame(
         data=tasks,
         columns=['fact1', 'fact2', 'question', 'answer'])
+
+def split_parse_data(path):
+    data = parse_data(path)
+    return data[['fact1', 'fact2', 'question']], data[['answer']]
