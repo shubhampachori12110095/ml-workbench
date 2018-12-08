@@ -6,10 +6,9 @@ from sklearn.base import TransformerMixin
 
 class ColumnBowVectorizer(TransformerMixin):
     def __init__(self):
-        self._stopwords = stopwords.words('english')
+        self._stopwords = stopwords.words('english') + ['.', '?'] + ['went', 'moved', 'travelled', 'journeyed', 'back']
         self._vocabulary = Set()
         self._dictionary = {}
-        self._feature_names = []
 
     def fit(self, df, *_):
         for column in df:
@@ -23,9 +22,20 @@ class ColumnBowVectorizer(TransformerMixin):
                     if token not in self._stopwords:
                         tokensFiltered.append(token)
 
-                self._feature_names += tokensFiltered
-                [self._vocabulary.add(token) for token in tokensFiltered]
-                # TODO: 2-grams & 3-grams
+                for index, token in enumerate(tokensFiltered):
+
+                    # 1-grams
+                    # self._vocabulary.add(token)
+
+                    # 2-grams
+                    if (index > 0 and index < len(tokensFiltered)):
+                        ngram = tokensFiltered[index-1] + tokensFiltered[index]
+                        self._vocabulary.add(ngram)
+
+                    # 3-grams
+                    if (index > 1 and index < len(tokensFiltered)):
+                        ngram = tokensFiltered[index-2] + tokensFiltered[index-1] + tokensFiltered[index]
+                        self._vocabulary.add(ngram)
 
         self._dictionary = {
             x:index for index, x in enumerate(self._vocabulary)
@@ -50,12 +60,31 @@ class ColumnBowVectorizer(TransformerMixin):
                 row_vector = dict.fromkeys(
                     range(0, len(self._vocabulary)), 0)
 
+                tokensFiltered = []
                 for token in tokens:
                     if token not in self._stopwords:
-                        dict_key = self._dictionary[token]
+                        tokensFiltered.append(token)
+
+                for index, token in enumerate(tokensFiltered):
+                    # 1-grams
+                    # dict_key = self._dictionary[token]
+                    # if dict_key is not -1:
+                    #     row_vector[dict_key] = 1
+
+                    # # 2-grams
+                    if (index > 0 and index < len(tokensFiltered)):
+                        ngram = tokensFiltered[index-1] + tokensFiltered[index]
+                        dict_key = self._dictionary[ngram]
                         if dict_key is not -1:
                             row_vector[dict_key] = 1
-                
+
+                    # 3-grams
+                    if (index > 1 and index < len(tokensFiltered)):
+                        ngram = tokensFiltered[index-2] + tokensFiltered[index-1] + tokensFiltered[index]
+                        dict_key = self._dictionary[ngram]
+                        if dict_key is not -1:
+                            row_vector[dict_key] = 1
+                    
                 column_vector.append(
                     list(row_vector.values())
                 )
