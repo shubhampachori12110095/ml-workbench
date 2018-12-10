@@ -3,43 +3,46 @@ import numpy as np
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from sklearn.base import TransformerMixin
+from toolz.functoolz import pipe, partial
+from operator import concat
 
 class ColumnBowVectorizer(TransformerMixin):
     def __init__(self):
-        self._stopwords = stopwords.words('english') + ['.', '?'] + ['went', 'moved', 'travelled', 'journeyed', 'back']
-        self._vocabulary = Set()
-        self._dictionary = {}
+        self._stopwords = stopwords.words('english') + \
+            ['.', '?'] + ['went', 'moved', 'travelled', 'journeyed', 'back']
+
+    def _get_df_column_row_values(self, df):
+        return df.values.flatten()
+
+    def _tokenize_row_value(self, values):
+        return map(word_tokenize, values)
+
+    def _apply_stopwords_filter(self, tokens):
+        return [token for token in tokens if token not in self._stopwords]
+
+    def apply_stopwords_filter_to_tokenlist(self, tokenlist):
+        return [self._apply_stopwords_filter(tokens) for tokens in tokenlist]
+
+    def _get_ngrams(self, tokens, n):
+        return [''.join(tokens[0:i]) for i in n if i <= len(tokens)] 
+
+    def _build_vocabulary(self, tokenlist, ngrams):
+        return reduce(concat, 
+            [self._get_ngrams(tokens, ngrams) for tokens in tokenlist])
+
+    def _build_dictionary(self, vocabulary):
+        return { word:index for index, word in enumerate(vocabulary) }
 
     def fit(self, df, *_):
-        for column in df:
-            rows = df[column].values
+        tokenlist = pipe(
+            df,
+            self._get_df_column_row_values,
+            self._tokenize_row_value,
+            self.apply_stopwords_filter_to_tokenlist
+        )
 
-            for row in rows:
-                tokens = word_tokenize(row)
-                tokensFiltered = []
-
-                for token in tokens:
-                    if token not in self._stopwords:
-                        tokensFiltered.append(token)
-
-                for index, token in enumerate(tokensFiltered):
-
-                    # 1-grams
-                    # self._vocabulary.add(token)
-
-                    # 2-grams
-                    if (index > 0 and index < len(tokensFiltered)):
-                        ngram = tokensFiltered[index-1] + tokensFiltered[index]
-                        self._vocabulary.add(ngram)
-
-                    # 3-grams
-                    if (index > 1 and index < len(tokensFiltered)):
-                        ngram = tokensFiltered[index-2] + tokensFiltered[index-1] + tokensFiltered[index]
-                        self._vocabulary.add(ngram)
-
-        self._dictionary = {
-            x:index for index, x in enumerate(self._vocabulary)
-        }
+        self._vocabulary = self._build_vocabulary(tokenlist, ngrams=[1,2,3])
+        self._dictionary = self._build_dictionary(self._vocabulary)
 
         return self
 
@@ -68,9 +71,9 @@ class ColumnBowVectorizer(TransformerMixin):
                 for index, token in enumerate(tokensFiltered):
                     try: 
                         # 1-grams
-                        # dict_key = self._dictionary[token]
-                        # if dict_key is not -1:
-                        #     row_vector[dict_key] = 1
+                        dict_key = self._dictionary[token]
+                        if dict_key is not -1:
+                            row_vector[dict_key] = 1
 
                         # # 2-grams
                         if (index > 0 and index < len(tokensFiltered)):
