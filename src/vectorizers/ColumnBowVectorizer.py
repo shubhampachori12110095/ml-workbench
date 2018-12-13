@@ -3,8 +3,9 @@ import numpy as np
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from sklearn.base import TransformerMixin
-from toolz.functoolz import pipe, partial
+from toolz.functoolz import pipe
 from toolz.dicttoolz import merge
+from toolz.itertoolz import unique
 from operator import concat
 
 class ColumnBowVectorizer(TransformerMixin):
@@ -24,6 +25,11 @@ class ColumnBowVectorizer(TransformerMixin):
     def _apply_stopwords_filter_to_tokenlist(self, tokenlist):
         return [self._apply_stopwords_filter(tokens) for tokens in tokenlist]
 
+    def _get_ngrams(self, tokens, n):
+        return unique(
+            [''.join(tokens[0:i]) for i in n if i <= len(tokens)] + tokens
+        )
+
     def _preprocess_row(self, values):
         return pipe(
             values,
@@ -31,12 +37,9 @@ class ColumnBowVectorizer(TransformerMixin):
             self._apply_stopwords_filter_to_tokenlist
         )
 
-    def _get_ngrams(self, tokens, n):
-        return [''.join(tokens[0:i]) for i in n if i <= len(tokens)]
-
     def _build_vocabulary(self, tokenlist, ngrams):
         return reduce(concat, 
-            [self._get_ngrams(tokens, ngrams) for tokens in tokenlist])
+            [list(self._get_ngrams(tokens, ngrams)) for tokens in tokenlist])
 
     def _build_dictionary(self, vocabulary):
         return { word:index for index, word in enumerate(vocabulary) }
@@ -54,15 +57,20 @@ class ColumnBowVectorizer(TransformerMixin):
         self._vocabulary = self._build_vocabulary(tokenlist, ngrams=[1,2,3])
         self._dictionary = self._build_dictionary(self._vocabulary)
         return self
-        
-    def _get_ngram_dictionary_index(self, ngram):
+
+    def _get_dictionary_index(self, ngram):
         dict_key = self._dictionary[ngram]
         if dict_key is not -1:
             return dict_key
 
+    def _get_row_indices(self, row_ngrams):
+        return [self._get_dictionary_index(ngram) for row in row_ngrams for ngram in row]
+
     def _create_row_vector(self, tokenlist, ngrams):
-        row_ngrams = [self._get_ngrams(tokenlist, ngrams)]
-        row_indices = [self._get_ngram_dictionary_index(ngram) for row in row_ngrams for ngram in row]
+        row_indices = pipe(
+            [self._get_ngrams(tokenlist, ngrams)],
+            self._get_row_indices,
+        )
         return merge(
             dict.fromkeys(range(0, len(self._vocabulary)), 0),
             dict.fromkeys(row_indices, 1),
