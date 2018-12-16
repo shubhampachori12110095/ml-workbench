@@ -2,16 +2,17 @@ from sets import Set
 import numpy as np
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
-from sklearn.base import TransformerMixin
-from toolz.functoolz import pipe
+from sklearn.base import BaseEstimator, TransformerMixin
+from toolz.functoolz import pipe, partial
 from toolz.dicttoolz import merge
-from toolz.itertoolz import unique
+from toolz.itertoolz import unique, mapcat
 from operator import concat
 
-class ColumnBowVectorizer(TransformerMixin):
-    def __init__(self):
+class ColumnBowVectorizer(BaseEstimator, TransformerMixin):
+    def __init__(self, ngrams=[1,2,3]):
         self._stopwords = stopwords.words('english') + \
             ['.', '?'] + ['went', 'moved', 'travelled', 'journeyed', 'back']
+        self.ngrams=ngrams
 
     def _get_df_column_row_values(self, df):
         return df.values.flatten()
@@ -26,9 +27,11 @@ class ColumnBowVectorizer(TransformerMixin):
         return [self._apply_stopwords_filter(tokens) for tokens in tokenlist]
 
     def _get_ngrams(self, tokens, n):
-        return unique(
-            [''.join(tokens[0:i]) for i in n if i <= len(tokens)] + tokens
+        ngram_joins = [''.join(tokens[0:i]) for i in n if i <= len(tokens)]
+        ngrams = unique(
+            ngram_joins + tokens
         )
+        return ngrams
 
     def _preprocess_row(self, values):
         return pipe(
@@ -44,17 +47,18 @@ class ColumnBowVectorizer(TransformerMixin):
     def _build_dictionary(self, vocabulary):
         return { word:index for index, word in enumerate(vocabulary) }
 
-    def fit(self, df, *_):
+    def fit(self, X, y=None):
         """
         build a dictionary from the given phrases that will be used to 
         transform phrases into bag of word arrays representing that phrase.
         """
+
         tokenlist = pipe(
-            df,
+            X,
             self._get_df_column_row_values,
             self._preprocess_row
         )
-        self._vocabulary = self._build_vocabulary(tokenlist, ngrams=[1,2,3])
+        self._vocabulary = self._build_vocabulary(tokenlist, ngrams=self.ngrams)
         self._dictionary = self._build_dictionary(self._vocabulary)
         return self
 
@@ -66,23 +70,34 @@ class ColumnBowVectorizer(TransformerMixin):
     def _get_row_indices(self, row_ngrams):
         return [self._get_dictionary_index(ngram) for row in row_ngrams for ngram in row]
 
-    def _create_row_vector(self, tokenlist, ngrams):
+    def _create_feature_vector(self, tokens, ngrams):
         row_indices = pipe(
-            [self._get_ngrams(tokenlist, ngrams)],
+            [self._get_ngrams(tokens, ngrams)],
             self._get_row_indices,
         )
-        return merge(
-            dict.fromkeys(range(0, len(self._vocabulary)), 0),
-            dict.fromkeys(row_indices, 1),
+        return np.array(
+            merge(
+                dict.fromkeys(range(0, len(self._vocabulary)), 0),
+                dict.fromkeys(row_indices, 1),
+            ).values()
         )
 
-    def _vectorize_feature(self, tokenlist, ngrams):
-        return [self._create_row_vector(tokens, ngrams) for tokens in tokenlist]
+    def _vectorize_feature(self, tokens, ngrams):
+        return pipe(
+            [self._create_feature_vector(token, ngrams) for token in tokens],
+            np.concatenate
+        )
 
-    def transform(self, df):
+    def transform(self, X):
         """
         transform given phrases into bag of word vectors.
         """
-        tokenized_rows = [self._preprocess_row(value) for value in df.values],
-        return [self._vectorize_feature(feature, [1,2,3]) 
-            for row in tokenized_rows for feature in row]
+        return pipe(
+            [self._preprocess_row(value) for value in X.values],
+            partial(map, lambda row: row),
+            partial(
+                map, 
+                partial(self._vectorize_feature, ngrams=self.ngrams)
+            ),
+            np.array
+        )
