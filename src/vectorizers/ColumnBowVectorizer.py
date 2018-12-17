@@ -1,4 +1,3 @@
-from sets import Set
 import numpy as np
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
@@ -6,7 +5,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from toolz.functoolz import pipe, partial
 from toolz.dicttoolz import merge
 from toolz.itertoolz import unique, mapcat
-from operator import concat
+from itertools import chain
 
 class ColumnBowVectorizer(BaseEstimator, TransformerMixin):
     def __init__(self, ngrams=[1,2,3]):
@@ -26,12 +25,11 @@ class ColumnBowVectorizer(BaseEstimator, TransformerMixin):
     def _apply_stopwords_filter_to_tokenlist(self, tokenlist):
         return [self._apply_stopwords_filter(tokens) for tokens in tokenlist]
 
-    def _get_ngrams(self, tokens, n):
-        ngram_joins = [''.join(tokens[0:i]) for i in n if i <= len(tokens)]
-        ngrams = unique(
+    def _get_ngrams(self, tokens, ngram_sizes):
+        ngram_joins = [''.join(tokens[:ngram_size]) for ngram_size in ngram_sizes if ngram_size <= len(tokens)]
+        return unique(
             ngram_joins + tokens
         )
-        return ngrams
 
     def _preprocess_row(self, values):
         return pipe(
@@ -41,8 +39,11 @@ class ColumnBowVectorizer(BaseEstimator, TransformerMixin):
         )
 
     def _build_vocabulary(self, tokenlist, ngrams):
-        return reduce(concat, 
-            [list(self._get_ngrams(tokens, ngrams)) for tokens in tokenlist])
+        return pipe(
+            (self._get_ngrams(tokens, ngrams) for tokens in tokenlist),
+            chain.from_iterable,
+            list
+        )
 
     def _build_dictionary(self, vocabulary):
         return { word:index for index, word in enumerate(vocabulary) }
@@ -70,22 +71,24 @@ class ColumnBowVectorizer(BaseEstimator, TransformerMixin):
     def _get_row_indices(self, row_ngrams):
         return [self._get_dictionary_index(ngram) for row in row_ngrams for ngram in row]
 
+    def _get_empty_vector(self, size):
+        return [0] * size
+
     def _create_feature_vector(self, tokens, ngrams):
         row_indices = pipe(
             [self._get_ngrams(tokens, ngrams)],
             self._get_row_indices,
         )
-        return np.array(
-            merge(
-                dict.fromkeys(range(0, len(self._vocabulary)), 0),
-                dict.fromkeys(row_indices, 1),
-            ).values()
-        )
+        vector = self._get_empty_vector(len(self._vocabulary))
+        for index in row_indices:
+            vector[index] = 1
+        return vector
 
     def _vectorize_feature(self, tokens, ngrams):
         return pipe(
-            [self._create_feature_vector(token, ngrams) for token in tokens],
-            np.concatenate
+            (self._create_feature_vector(token, ngrams) for token in tokens),
+            chain.from_iterable,
+            list
         )
 
     def transform(self, X):
@@ -98,6 +101,5 @@ class ColumnBowVectorizer(BaseEstimator, TransformerMixin):
             partial(
                 map, 
                 partial(self._vectorize_feature, ngrams=self.ngrams)
-            ),
-            np.array
+            )
         )
