@@ -1,20 +1,29 @@
 import numpy as np
+import pandas as pd
+import string
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from sklearn.base import BaseEstimator, TransformerMixin
 from toolz.functoolz import pipe, partial
-from toolz.dicttoolz import merge
-from toolz.itertoolz import unique, mapcat
+from toolz.itertoolz import unique
 from itertools import chain
+from functools import wraps
+
+def memoize(func):
+    cache = func.cache = {}
+    @wraps(func)
+    def memoized_func(*args, **kwargs):
+        key = str(args) + str(kwargs)
+        if key not in cache:
+            cache[key] = func(*args, **kwargs)
+        return cache[key]
+    return memoized_func
 
 class ColumnBowVectorizer(BaseEstimator, TransformerMixin):
     def __init__(self, ngrams=[1,2,3]):
         self._stopwords = stopwords.words('english') + \
-            ['.', '?'] + ['went', 'moved', 'travelled', 'journeyed', 'back']
+            list(string.punctuation) + ['went', 'moved', 'travelled', 'journeyed', 'back']
         self.ngrams=ngrams
-
-    def _get_df_column_row_values(self, df):
-        return df.values.flatten()
 
     def _tokenize_row_value(self, values):
         return map(word_tokenize, values)
@@ -25,11 +34,16 @@ class ColumnBowVectorizer(BaseEstimator, TransformerMixin):
     def _apply_stopwords_filter_to_tokenlist(self, tokenlist):
         return [self._apply_stopwords_filter(tokens) for tokens in tokenlist]
 
+    @memoize
     def _get_ngrams(self, tokens, ngram_sizes):
         ngram_joins = [''.join(tokens[:ngram_size]) for ngram_size in ngram_sizes if ngram_size <= len(tokens)]
         return unique(
             ngram_joins + tokens
         )
+
+    def _preprocess_column(self, phrases):
+        return phrases.apply(word_tokenize).apply(
+            partial(filter, lambda x: x not in self._stopwords))
 
     def _preprocess_row(self, values):
         return pipe(
@@ -54,11 +68,9 @@ class ColumnBowVectorizer(BaseEstimator, TransformerMixin):
         transform phrases into bag of word arrays representing that phrase.
         """
 
-        tokenlist = pipe(
-            X,
-            self._get_df_column_row_values,
-            self._preprocess_row
-        )
+        phrases = pd.concat([X[col] for col in X])
+        tokenlist = self._preprocess_column(phrases)
+
         self._vocabulary = self._build_vocabulary(tokenlist, ngrams=self.ngrams)
         self._dictionary = self._build_dictionary(self._vocabulary)
         return self
@@ -84,9 +96,9 @@ class ColumnBowVectorizer(BaseEstimator, TransformerMixin):
             vector[index] = 1
         return vector
 
-    def _vectorize_feature(self, tokens, ngrams):
+    def _vectorize_feature(self, row, ngrams):
         return pipe(
-            (self._create_feature_vector(token, ngrams) for token in tokens),
+            (self._create_feature_vector(tokens, ngrams) for tokens in row),
             chain.from_iterable,
             list
         )
